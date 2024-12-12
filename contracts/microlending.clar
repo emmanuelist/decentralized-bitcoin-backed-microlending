@@ -214,3 +214,21 @@
         (ok true)
     )
 )
+
+;; Price Feed Management (Simulated)
+(define-public (update-asset-price (asset (string-ascii 20)) (price uint))
+    (begin
+        (asserts! (> (len asset) u0) ERR-INVALID-AMOUNT)
+        (asserts! (> price u0) ERR-INVALID-AMOUNT)
+        (asserts! (is-valid-collateral-asset asset) ERR-INVALID-COLLATERAL-ASSET)
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (map-set AssetPrices 
+            { asset: asset }
+            { 
+                price: price, 
+                last-updated: block-height 
+            }
+        )
+        (ok true)
+    )
+)
