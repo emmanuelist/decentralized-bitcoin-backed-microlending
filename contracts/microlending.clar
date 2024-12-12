@@ -180,3 +180,37 @@
         }
     ))
 )
+
+;; Emergency Stop Functions
+(define-public (toggle-emergency-stop)
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (var-set emergency-stopped (not (var-get emergency-stopped)))
+        (ok true)
+    )
+)
+
+;; Collateral Asset Management
+(define-public (add-collateral-asset (asset (string-ascii 20)))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (asserts! (> (len asset) u0) ERR-INVALID-AMOUNT)
+        (map-set AllowedCollateralAssets 
+            { asset: asset } 
+            { is-active: true }
+        )
+        (ok true)
+    )
+)
+
+(define-public (remove-collateral-asset (asset (string-ascii 20)))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (asserts! (> (len asset) u0) ERR-INVALID-AMOUNT)
+        (map-set AllowedCollateralAssets 
+            { asset: asset } 
+            { is-active: false }
+        )
+        (ok true)
+    )
+)
