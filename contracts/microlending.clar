@@ -21,3 +21,12 @@
 (define-constant ERR-EMERGENCY-STOP (err u1011))
 (define-constant ERR-PRICE-FEED-FAILURE (err u1012))
 (define-constant ERR-INVALID-COLLATERAL-ASSET (err u1013))
+
+;; Enhanced Business Constants
+(define-constant CONTRACT-OWNER tx-sender)
+(define-constant MIN-COLLATERAL-RATIO u200) ;; Increased from 150% to 200%
+(define-constant MAX-INTEREST-RATE u5000) ;; 50%
+(define-constant MIN-DURATION u1440) ;; Minimum 1 day
+(define-constant MAX-DURATION u525600) ;; Maximum 1 year
+(define-constant LIQUIDATION-THRESHOLD u80) ;; 80% collateral value drop
+(define-constant MAX-PRICE-AGE u1440) ;; Maximum price age (1 day in blocks)
