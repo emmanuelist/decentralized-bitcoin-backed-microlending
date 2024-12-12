@@ -110,3 +110,34 @@
 (define-private (is-sufficient-collateral (loan-amount uint) (collateral-amount uint))
     (>= (calculate-collateral-ratio loan-amount collateral-amount) MIN-COLLATERAL-RATIO)
 )
+
+(define-private (calculate-liquidation-threshold (current-price uint))
+    (/ (* current-price LIQUIDATION-THRESHOLD) u100)
+)
+
+(define-private (get-current-asset-price (asset (string-ascii 20)))
+    (match (map-get? AssetPrices { asset: asset })
+        price-info 
+        (if (and 
+                (> (get price price-info) u0)
+                (< (- block-height (get last-updated price-info)) MAX-PRICE-AGE)
+            )
+            (ok (get price price-info))
+            (err ERR-PRICE-FEED-FAILURE)
+        )
+        (err ERR-PRICE-FEED-FAILURE)
+    )
+)
+
+(define-private (is-collateral-above-liquidation-threshold (loan-id uint))
+    (match (map-get? Loans { loan-id: loan-id })
+        loan 
+        (match (get-current-asset-price (get collateral-asset loan))
+            current-price-ok 
+            (>= current-price-ok (get liquidation-price-threshold loan))
+            err-code 
+            false
+        )
+        false
+    )
+)
