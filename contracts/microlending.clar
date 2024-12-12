@@ -312,3 +312,39 @@
         (ok loan-id)
     )
 )
+
+;; Enhanced Liquidation Mechanism
+(define-public (liquidate-loan (loan-id uint))
+    (begin
+        ;; Validate loan-id
+        (asserts! (> loan-id u0) ERR-LOAN-NOT-FOUND)
+        
+        (let (
+            (loan (unwrap! (map-get? Loans { loan-id: loan-id }) ERR-LOAN-NOT-FOUND))
+        )
+            ;; Comprehensive Liquidation Checks
+            (asserts! (is-contract-active) ERR-EMERGENCY-STOP)
+            (asserts! (is-eq (get status loan) "ACTIVE") ERR-LOAN-NOT-ACTIVE)
+            
+            ;; Dual Liquidation Triggers: Time AND Collateral Value
+            (asserts! 
+                (or 
+                    (> block-height (+ (get start-height loan) (get duration loan)))
+                    (not (is-collateral-above-liquidation-threshold loan-id))
+                ) 
+                ERR-LOAN-NOT-DEFAULTED
+            )
+            
+            ;; Update Loan Status and Reputation
+            (map-set Loans
+                { loan-id: loan-id }
+                (merge loan { status: "LIQUIDATED" })
+            )
+            
+            ;; Update Borrower Reputation with Severe Penalty
+            (update-user-reputation (get borrower loan) false)
+            
+            (ok true)
+        )
+    )
+)
