@@ -48,3 +48,42 @@
         last-updated: uint 
     }
 )
+
+;; Enhanced Data Maps
+(define-map Loans
+    { loan-id: uint }
+    {
+        borrower: principal,
+        amount: uint,
+        collateral-amount: uint,
+        collateral-asset: (string-ascii 20),
+        interest-rate: uint,
+        start-height: uint,
+        duration: uint,
+        status: (string-ascii 20),
+        lenders: (list 20 principal),
+        repaid-amount: uint,
+        liquidation-price-threshold: uint
+    }
+)
+
+(define-map UserLoans
+    { user: principal }
+    { 
+        active-loans: (list 20 uint),
+        total-active-borrowed: uint 
+    }
+)
+
+(define-map UserReputation
+    { user: principal }
+    {
+        successful-repayments: uint,
+        defaults: uint,
+        total-borrowed: uint,
+        reputation-score: uint
+    }
+)
+
+(define-data-var next-loan-id uint u1)
+(define-data-var max-loan-id uint u0)
