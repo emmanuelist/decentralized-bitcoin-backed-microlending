@@ -87,3 +87,26 @@
 
 (define-data-var next-loan-id uint u1)
 (define-data-var max-loan-id uint u0)
+
+;; Private Utility Functions
+(define-private (is-contract-active)
+    (and 
+        (not (var-get emergency-stopped))
+        (is-eq contract-caller CONTRACT-OWNER)
+    )
+)
+
+(define-private (is-valid-collateral-asset (asset (string-ascii 20)))
+    (match (map-get? AllowedCollateralAssets { asset: asset })
+        allowed-asset (get is-active allowed-asset)
+        false
+    )
+)
+
+(define-private (calculate-collateral-ratio (loan-amount uint) (collateral-amount uint))
+    (/ (* collateral-amount u100) loan-amount)
+)
+
+(define-private (is-sufficient-collateral (loan-amount uint) (collateral-amount uint))
+    (>= (calculate-collateral-ratio loan-amount collateral-amount) MIN-COLLATERAL-RATIO)
+)
