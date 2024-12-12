@@ -30,3 +30,21 @@
 (define-constant MAX-DURATION u525600) ;; Maximum 1 year
 (define-constant LIQUIDATION-THRESHOLD u80) ;; 80% collateral value drop
 (define-constant MAX-PRICE-AGE u1440) ;; Maximum price age (1 day in blocks)
+
+;; Emergency Stop Mechanism
+(define-data-var emergency-stopped bool false)
+
+;; Whitelist for Collateral Assets
+(define-map AllowedCollateralAssets 
+    { asset: (string-ascii 20) } 
+    { is-active: bool }
+)
+
+;; Price Feed Simulation (would be replaced by actual oracle in production)
+(define-map AssetPrices 
+    { asset: (string-ascii 20) } 
+    { 
+        price: uint, 
+        last-updated: uint 
+    }
+)
