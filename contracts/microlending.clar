@@ -232,3 +232,83 @@
         (ok true)
     )
 )
+
+;; Enhanced Loan Creation
+(define-public (create-loan-request 
+    (amount uint) 
+    (collateral uint) 
+    (collateral-asset (string-ascii 20)) 
+    (duration uint) 
+    (interest-rate uint)
+)
+    (let
+        (
+            (loan-id (var-get next-loan-id))
+            (tx-sender tx-sender)
+            (current-asset-price (unwrap! 
+                (get-current-asset-price collateral-asset) 
+                ERR-PRICE-FEED-FAILURE
+            ))
+        )
+        ;; Comprehensive Validation
+        (asserts! (is-contract-active) ERR-EMERGENCY-STOP)
+        (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+        (asserts! (> collateral u0) ERR-INSUFFICIENT-COLLATERAL)
+        (asserts! (is-sufficient-collateral amount collateral) ERR-INSUFFICIENT-COLLATERAL)
+        (asserts! (is-valid-collateral-asset collateral-asset) ERR-INVALID-COLLATERAL-ASSET)
+        
+        ;; Enhanced Validation Checks
+        (asserts! 
+            (and 
+                (>= duration MIN-DURATION) 
+                (<= duration MAX-DURATION)
+            ) 
+            ERR-INVALID-DURATION
+        )
+        (asserts! 
+            (<= interest-rate MAX-INTEREST-RATE) 
+            ERR-INVALID-INTEREST-RATE
+        )
+        
+        ;; Loan Creation with Enhanced Tracking
+        (map-set Loans
+            { loan-id: loan-id }
+            {
+                borrower: tx-sender,
+                amount: amount,
+                collateral-amount: collateral,
+                collateral-asset: collateral-asset,
+                interest-rate: interest-rate,
+                start-height: block-height,
+                duration: duration,
+                status: "PENDING",
+                lenders: (list),
+                repaid-amount: u0,
+                liquidation-price-threshold: (calculate-liquidation-threshold current-asset-price)
+            }
+        )
+        
+        ;; Update User Loans with Total Borrowed Tracking
+        (let ((user-loans (default-to 
+                { active-loans: (list), total-active-borrowed: u0 }
+                (map-get? UserLoans { user: tx-sender }))))
+            (map-set UserLoans
+                { user: tx-sender }
+                { 
+                    active-loans: (unwrap-panic (as-max-len? 
+                        (append (get active-loans user-loans) loan-id) u20)),
+                    total-active-borrowed: (+ 
+                        (get total-active-borrowed user-loans) 
+                        amount
+                    )
+                }
+            )
+        )
+        
+        ;; Increment and Update Loan Tracking
+        (var-set next-loan-id (+ loan-id u1))
+        (var-set max-loan-id loan-id)
+        
+        (ok loan-id)
+    )
+)
