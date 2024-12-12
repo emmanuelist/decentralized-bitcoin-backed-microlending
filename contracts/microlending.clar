@@ -141,3 +141,42 @@
         false
     )
 )
+
+(define-private (update-user-reputation (user principal) (success bool))
+    (let (
+        (current-reputation (default-to
+            { 
+                successful-repayments: u0, 
+                defaults: u0, 
+                total-borrowed: u0,
+                reputation-score: u100 ;; Start with neutral 100
+            }
+            (map-get? UserReputation { user: user })
+        ))
+        (reputation-change (if success u10 (- u0 u20))) ;; Use subtraction from 0 to create a negative effect
+        (new-reputation-score 
+            (if (< (+ (get reputation-score current-reputation) reputation-change) u0)
+                u0
+                (if (> (+ (get reputation-score current-reputation) reputation-change) u200)
+                    u200
+                    (+ (get reputation-score current-reputation) reputation-change)
+                )
+            )
+        )
+    )
+    (map-set UserReputation
+        { user: user }
+        {
+            successful-repayments: (if success 
+                (+ (get successful-repayments current-reputation) u1)
+                (get successful-repayments current-reputation)
+            ),
+            defaults: (if success 
+                (get defaults current-reputation)
+                (+ (get defaults current-reputation) u1)
+            ),
+            total-borrowed: (get total-borrowed current-reputation),
+            reputation-score: new-reputation-score
+        }
+    ))
+)
