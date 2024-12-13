@@ -1,30 +1,47 @@
-import React from "react";
-import { WalletIcon } from "lucide-react";
-import { AppConfig, UserSession } from "@stacks/auth";
-import { showConnect } from "@stacks/connect";
+import React, { useEffect, useState } from "react";
+import { WalletIcon, LogOutIcon } from "lucide-react";
+import {
+  authenticate,
+  getUserData,
+  signUserOut,
+  userSession,
+} from "../lib/auth";
 
-export function Layout({ children }: { children: React.ReactNode }) {
-  const appConfig = new AppConfig(["store_write", "publish_data"]);
-  const userSession = new UserSession({ appConfig });
+interface LayoutProps {
+  children: React.ReactNode;
+}
 
-  function connectWallet() {
-    showConnect({
-      appDetails: {
-        name: "MicroLend",
-        icon: "MicroLend",
-      },
-
-      onFinish: function () {
-        const userData = userSession.loadUserData();
-        console.log(userData);
-        sessionStorage.setItem("address", JSON.stringify(userData));
-
-        console.log(userSession);
-      },
-
-      userSession,
-    });
+export function Layout({ children }: LayoutProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  interface UserData {
+    profile: {
+      stxAddress: {
+        mainnet: string;
+      };
+    };
   }
+
+  const [userData, setUserData] = useState<UserData | null>(null);
+
+  useEffect(() => {
+    if (userSession.isSignInPending()) {
+      userSession.handlePendingSignIn().then((userData) => {
+        setIsAuthenticated(true);
+        setUserData(userData);
+      });
+    } else if (userSession.isUserSignedIn()) {
+      setIsAuthenticated(true);
+      setUserData(getUserData());
+    }
+  }, []);
+
+  const handleAuth = () => {
+    if (isAuthenticated) {
+      signUserOut();
+    } else {
+      authenticate();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -34,13 +51,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-blue-600">MicroLend</h1>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-4">
+              {isAuthenticated && (
+                <span className="text-sm text-gray-600">
+                  {userData?.profile?.stxAddress?.mainnet}
+                </span>
+              )}
               <button
+                onClick={handleAuth}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                onClick={connectWallet}
               >
-                <WalletIcon className="h-5 w-5 mr-2" />
-                Connect Wallet
+                {isAuthenticated ? (
+                  <>
+                    <LogOutIcon className="h-5 w-5 mr-2" />
+                    Disconnect
+                  </>
+                ) : (
+                  <>
+                    <WalletIcon className="h-5 w-5 mr-2" />
+                    Connect Wallet
+                  </>
+                )}
               </button>
             </div>
           </div>
