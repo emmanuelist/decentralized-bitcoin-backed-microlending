@@ -1,9 +1,9 @@
-import React from 'react';
-import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
-import { LoanForm } from './components/LoanForm';
-import { LoanTable } from './components/LoanTable';
-import { AdminPanel } from './components/AdminPanel';
+import React from "react";
+import { Layout } from "./components/Layout";
+import { Dashboard } from "./components/Dashboard";
+import { LoanForm } from "./components/LoanForm";
+import { LoanTable } from "./components/LoanTable";
+import { AdminPanel } from "./components/AdminPanel";
 
 // Mock data for demonstration
 const mockReputation = {
@@ -21,14 +21,14 @@ const mockLoans = {
 const mockActiveLoans = [
   {
     loanId: 1,
-    borrower: '0x1234...5678',
+    borrower: "0x1234...5678",
     amount: 1000,
     collateralAmount: 2000,
-    collateralAsset: 'STX',
+    collateralAsset: "STX",
     interestRate: 5,
     startHeight: 12345,
     duration: 30,
-    status: 'ACTIVE',
+    status: "ACTIVE" as "ACTIVE" | "PENDING" | "LIQUIDATED",
     lenders: [],
     repaidAmount: 0,
     liquidationPriceThreshold: 1600,
@@ -41,12 +41,12 @@ function App() {
     <Layout>
       <div className="space-y-8">
         <Dashboard reputation={mockReputation} loans={mockLoans} />
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <LoanForm />
           <AdminPanel />
         </div>
-        
+
         <LoanTable loans={mockActiveLoans} />
       </div>
     </Layout>
