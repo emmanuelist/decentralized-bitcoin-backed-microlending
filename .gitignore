@@ -3,3 +3,4 @@ settings/Mainnet.toml
 settings/Testnet.toml
 history.txt
 .vscode
+frontend/node_modules
