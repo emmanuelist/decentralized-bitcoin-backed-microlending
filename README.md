@@ -1,6 +1,6 @@
 # MicroLend - Decentralized Microlending Platform
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/bbdf3c-heartfelt-cheesecake/deploy-status)](https://heartfelt-cheesecake-bbdf3c.netlify.app)
+[![Vercel Status]()](https://decentralized-bitcoin-backed-microlending.vercel.app/)
 
 MicroLend is a decentralized microlending platform built on the Stacks blockchain, enabling peer-to-peer lending with collateralized loans. The platform provides a secure, transparent, and efficient way to facilitate lending and borrowing of digital assets.
 
@@ -102,7 +102,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For support, please open an issue in the GitHub repository or contact the team at support@microlend.io.
+For support, please open an issue in the GitHub repository or contact the team at emmanuelpaul152@gmail.com
 
 ## Acknowledgments
 
@@ -112,4 +112,4 @@ For support, please open an issue in the GitHub repository or contact the team a
 
 ## Deployment
 
-The application is deployed on Netlify. Visit [MicroLend Platform](https://heartfelt-cheesecake-bbdf3c.netlify.app) to access the live version.
+The application is deployed on Vercel. Visit [MicroLend Platform](https://decentralized-bitcoin-backed-microlending.vercel.app/) to access the live version.
