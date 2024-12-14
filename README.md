@@ -2,7 +2,14 @@
 
 [![Vercel Status]()](https://decentralized-bitcoin-backed-microlending.vercel.app/)
 
+> Built with Clarity on Stacks | Bitcoin-backed lending | No-code friendly
+
 MicroLend is a decentralized microlending platform built on the Stacks blockchain, enabling peer-to-peer lending with collateralized loans. The platform provides a secure, transparent, and efficient way to facilitate lending and borrowing of digital assets.
+
+## Tags
+
+[![](https://img.shields.io/badge/Stacks-No%20Code%20Clarity-blue)](https://github.com/nocodeclarity)
+[![](https://img.shields.io/badge/Stacks-Governance-orange)](https://github.com/stacksgov)
 
 ## Features
 
