@@ -1,12 +1,30 @@
 import React from 'react';
 import { Loan } from '../types';
 import { Clock, AlertCircle } from 'lucide-react';
+import { liquidateLoan } from '../lib/stacks';
+import { userSession } from '../lib/auth';
 
 interface LoanTableProps {
   loans: Loan[];
 }
 
 export function LoanTable({ loans }: LoanTableProps) {
+  const handleLiquidate = async (loanId: number) => {
+    if (!userSession.isUserSignedIn()) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
+    try {
+      const response = await liquidateLoan(loanId);
+      console.log("Liquidation transaction:", response);
+      // You might want to refresh the loans list or show a success message
+    } catch (error) {
+      console.error("Error liquidating loan:", error);
+      alert("Failed to liquidate loan");
+    }
+  };
+
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
       <div className="px-4 py-5 sm:px-6">
@@ -80,9 +98,7 @@ export function LoanTable({ loans }: LoanTableProps) {
                   {loan.status === 'ACTIVE' && (
                     <button
                       className="text-red-600 hover:text-red-900"
-                      onClick={() => {
-                        // Handle liquidation
-                      }}
+                      onClick={() => handleLiquidate(loan.loanId)}
                     >
                       Liquidate
                     </button>

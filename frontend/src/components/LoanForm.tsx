@@ -1,28 +1,62 @@
-import React, { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import React, { useState } from "react";
+import { AlertCircle } from "lucide-react";
+import { createLoan } from "../lib/stacks";
+import { userSession } from "../lib/auth";
 
 export function LoanForm() {
   const [formData, setFormData] = useState({
-    amount: '',
-    collateralAmount: '',
-    collateralAsset: '',
-    duration: '',
-    interestRate: '',
+    amount: "",
+    collateralAmount: "",
+    collateralAsset: "",
+    duration: "",
+    interestRate: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle loan creation
+    if (!userSession.isUserSignedIn()) {
+      setError("Please connect your wallet first");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await createLoan(
+        Number(formData.amount),
+        Number(formData.collateralAmount),
+        Number(formData.duration),
+        Number(formData.interestRate)
+      );
+      
+      console.log("Loan creation transaction:", response);
+      // You might want to show a success message or redirect
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create loan");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Create Loan Request</h2>
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        Create Loan Request
+      </h2>
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 rounded-lg flex items-center">
+          <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Loan Amount
+              Loan Amount (STX)
             </label>
             <input
               type="number"
@@ -32,6 +66,8 @@ export function LoanForm() {
                 setFormData({ ...formData, amount: e.target.value })
               }
               required
+              min="0"
+              step="1"
             />
           </div>
 
@@ -47,6 +83,8 @@ export function LoanForm() {
                 setFormData({ ...formData, collateralAmount: e.target.value })
               }
               required
+              min="0"
+              step="1"
             />
           </div>
 
@@ -106,9 +144,14 @@ export function LoanForm() {
         <div className="mt-6">
           <button
             type="submit"
-            className="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={isLoading}
+            className={`w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
+              isLoading
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
           >
-            Create Loan Request
+            {isLoading ? "Creating Loan..." : "Create Loan Request"}
           </button>
         </div>
       </form>
