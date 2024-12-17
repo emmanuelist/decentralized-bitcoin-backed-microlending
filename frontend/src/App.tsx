@@ -1,11 +1,11 @@
 import React from "react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
-import { LoanForm } from "./components/LoanForm";
+import { LoanForm } from "./components/loans/LoanForm";
 import { LoanTable } from "./components/LoanTable";
 import { AdminPanel } from "./components/AdminPanel";
 
-// Mock data for demonstration
+// Mock data for demonstration - will be replaced with real data from smart contract
 const mockReputation = {
   successfulRepayments: 5,
   defaults: 0,
@@ -33,7 +33,20 @@ const mockActiveLoans = [
     repaidAmount: 0,
     liquidationPriceThreshold: 1600,
   },
-  // Add more mock loans as needed
+  {
+    loanId: 2,
+    borrower: "0x5678...9012",
+    amount: 2000,
+    collateralAmount: 4000,
+    collateralAsset: "STX",
+    interestRate: 6,
+    startHeight: 12350,
+    duration: 45,
+    status: "PENDING" as "ACTIVE" | "PENDING" | "LIQUIDATED",
+    lenders: [],
+    repaidAmount: 0,
+    liquidationPriceThreshold: 3200,
+  },
 ];
 
 function App() {
