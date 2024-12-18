@@ -21,27 +21,29 @@
 (define-constant ERR-EMERGENCY-STOP (err u1011))
 (define-constant ERR-PRICE-FEED-FAILURE (err u1012))
 (define-constant ERR-INVALID-COLLATERAL-ASSET (err u1013))
+(define-constant tx-sender-zero (as-contract tx-sender))
 
 ;; Enhanced Business Constants
-(define-constant CONTRACT-OWNER tx-sender)
-(define-constant MIN-COLLATERAL-RATIO u200) ;; Increased from 150% to 200%
+(define-constant MIN-COLLATERAL-RATIO u200) ;; 200%
 (define-constant MAX-INTEREST-RATE u5000) ;; 50%
 (define-constant MIN-DURATION u1440) ;; Minimum 1 day
 (define-constant MAX-DURATION u525600) ;; Maximum 1 year
 (define-constant LIQUIDATION-THRESHOLD u80) ;; 80% collateral value drop
 (define-constant MAX-PRICE-AGE u1440) ;; Maximum price age (1 day in blocks)
 
-;; Emergency Stop Mechanism
+;; Contract State Variables
 (define-data-var emergency-stopped bool false)
+(define-data-var contract-owner principal tx-sender)
+(define-data-var next-loan-id uint u1)
 
 ;; Whitelist for Collateral Assets
-(define-map AllowedCollateralAssets 
+(define-map allowed-collateral-assets 
     { asset: (string-ascii 20) } 
     { is-active: bool }
 )
 
-;; Price Feed Simulation (would be replaced by actual oracle in production)
-(define-map AssetPrices 
+;; Price Feed Simulation
+(define-map asset-prices 
     { asset: (string-ascii 20) } 
     { 
         price: uint, 
@@ -49,8 +51,8 @@
     }
 )
 
-;; Enhanced Data Maps
-(define-map Loans
+;; Loans Tracking
+(define-map loans
     { loan-id: uint }
     {
         borrower: principal,
@@ -67,7 +69,8 @@
     }
 )
 
-(define-map UserLoans
+;; User Loans Tracking
+(define-map user-loans
     { user: principal }
     { 
         active-loans: (list 20 uint),
@@ -75,7 +78,8 @@
     }
 )
 
-(define-map UserReputation
+;; User Reputation Tracking
+(define-map user-reputation
     { user: principal }
     {
         successful-repayments: uint,
@@ -85,19 +89,31 @@
     }
 )
 
-(define-data-var next-loan-id uint u1)
-(define-data-var max-loan-id uint u0)
-
-;; Private Utility Functions
-(define-private (is-contract-active)
-    (and 
-        (not (var-get emergency-stopped))
-        (is-eq contract-caller CONTRACT-OWNER)
+;; Owner Management
+(define-public (set-contract-owner (new-owner principal))
+    (begin
+        ;; Check that the sender is the current contract owner
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        
+        ;; Ensure new owner is different from current owner
+        (asserts! (not (is-eq new-owner (var-get contract-owner))) ERR-INVALID-AMOUNT)
+        
+        (var-set contract-owner new-owner)
+        (ok true)
     )
 )
 
+;; Utility Functions
+(define-private (is-contract-active)
+    (not (var-get emergency-stopped))
+)
+
+(define-private (is-authorized)
+    (is-eq tx-sender (var-get contract-owner))
+)
+
 (define-private (is-valid-collateral-asset (asset (string-ascii 20)))
-    (match (map-get? AllowedCollateralAssets { asset: asset })
+    (match (map-get? allowed-collateral-assets { asset: asset })
         allowed-asset (get is-active allowed-asset)
         false
     )
@@ -116,7 +132,7 @@
 )
 
 (define-private (get-current-asset-price (asset (string-ascii 20)))
-    (match (map-get? AssetPrices { asset: asset })
+    (match (map-get? asset-prices { asset: asset })
         price-info 
         (if (and 
                 (> (get price price-info) u0)
@@ -130,7 +146,7 @@
 )
 
 (define-private (is-collateral-above-liquidation-threshold (loan-id uint))
-    (match (map-get? Loans { loan-id: loan-id })
+    (match (map-get? loans { loan-id: loan-id })
         loan 
         (match (get-current-asset-price (get collateral-asset loan))
             current-price-ok 
@@ -149,11 +165,11 @@
                 successful-repayments: u0, 
                 defaults: u0, 
                 total-borrowed: u0,
-                reputation-score: u100 ;; Start with neutral 100
+                reputation-score: u100 
             }
-            (map-get? UserReputation { user: user })
+            (map-get? user-reputation { user: user })
         ))
-        (reputation-change (if success u10 (- u0 u20))) ;; Use subtraction from 0 to create a negative effect
+        (reputation-change (if success u10 (- u0 u20)))
         (new-reputation-score 
             (if (< (+ (get reputation-score current-reputation) reputation-change) u0)
                 u0
@@ -164,7 +180,7 @@
             )
         )
     )
-    (map-set UserReputation
+    (map-set user-reputation
         { user: user }
         {
             successful-repayments: (if success 
@@ -181,10 +197,10 @@
     ))
 )
 
-;; Emergency Stop Functions
+;; Emergency Stop Mechanism
 (define-public (toggle-emergency-stop)
     (begin
-        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
         (var-set emergency-stopped (not (var-get emergency-stopped)))
         (ok true)
     )
@@ -193,9 +209,9 @@
 ;; Collateral Asset Management
 (define-public (add-collateral-asset (asset (string-ascii 20)))
     (begin
-        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
         (asserts! (> (len asset) u0) ERR-INVALID-AMOUNT)
-        (map-set AllowedCollateralAssets 
+        (map-set allowed-collateral-assets 
             { asset: asset } 
             { is-active: true }
         )
@@ -205,9 +221,9 @@
 
 (define-public (remove-collateral-asset (asset (string-ascii 20)))
     (begin
-        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
         (asserts! (> (len asset) u0) ERR-INVALID-AMOUNT)
-        (map-set AllowedCollateralAssets 
+        (map-set allowed-collateral-assets 
             { asset: asset } 
             { is-active: false }
         )
@@ -215,14 +231,14 @@
     )
 )
 
-;; Price Feed Management (Simulated)
+;; Price Feed Management
 (define-public (update-asset-price (asset (string-ascii 20)) (price uint))
     (begin
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
         (asserts! (> (len asset) u0) ERR-INVALID-AMOUNT)
         (asserts! (> price u0) ERR-INVALID-AMOUNT)
         (asserts! (is-valid-collateral-asset asset) ERR-INVALID-COLLATERAL-ASSET)
-        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
-        (map-set AssetPrices 
+        (map-set asset-prices 
             { asset: asset }
             { 
                 price: price, 
@@ -244,7 +260,7 @@
     (let
         (
             (loan-id (var-get next-loan-id))
-            (tx-sender tx-sender)
+            (tx-sender-account tx-sender)
             (current-asset-price (unwrap! 
                 (get-current-asset-price collateral-asset) 
                 ERR-PRICE-FEED-FAILURE
@@ -271,10 +287,10 @@
         )
         
         ;; Loan Creation with Enhanced Tracking
-        (map-set Loans
+        (map-set loans
             { loan-id: loan-id }
             {
-                borrower: tx-sender,
+                borrower: tx-sender-account,
                 amount: amount,
                 collateral-amount: collateral,
                 collateral-asset: collateral-asset,
@@ -289,25 +305,24 @@
         )
         
         ;; Update User Loans with Total Borrowed Tracking
-        (let ((user-loans (default-to 
-                { active-loans: (list), total-active-borrowed: u0 }
-                (map-get? UserLoans { user: tx-sender }))))
-            (map-set UserLoans
-                { user: tx-sender }
-                { 
-                    active-loans: (unwrap-panic (as-max-len? 
-                        (append (get active-loans user-loans) loan-id) u20)),
-                    total-active-borrowed: (+ 
-                        (get total-active-borrowed user-loans) 
-                        amount
-                    )
-                }
+        (let ((existing-user-loans (default-to 
+        { active-loans: (list), total-active-borrowed: u0 }
+        (map-get? user-loans { user: tx-sender-account }))))
+    (map-set user-loans
+        { user: tx-sender-account }
+        { 
+            active-loans: (unwrap-panic (as-max-len? 
+                (append (get active-loans existing-user-loans) loan-id) u20)),
+            total-active-borrowed: (+ 
+                (get total-active-borrowed existing-user-loans) 
+                amount
             )
-        )
+        }
+    )
+)
         
         ;; Increment and Update Loan Tracking
         (var-set next-loan-id (+ loan-id u1))
-        (var-set max-loan-id loan-id)
         
         (ok loan-id)
     )
@@ -320,7 +335,7 @@
         (asserts! (> loan-id u0) ERR-LOAN-NOT-FOUND)
         
         (let (
-            (loan (unwrap! (map-get? Loans { loan-id: loan-id }) ERR-LOAN-NOT-FOUND))
+            (loan (unwrap! (map-get? loans { loan-id: loan-id }) ERR-LOAN-NOT-FOUND))
         )
             ;; Comprehensive Liquidation Checks
             (asserts! (is-contract-active) ERR-EMERGENCY-STOP)
@@ -336,7 +351,7 @@
             )
             
             ;; Update Loan Status and Reputation
-            (map-set Loans
+            (map-set loans
                 { loan-id: loan-id }
                 (merge loan { status: "LIQUIDATED" })
             )
@@ -351,11 +366,11 @@
 
 ;; Read-Only Functions with Enhanced Error Handling
 (define-read-only (get-loan (loan-id uint))
-    (map-get? Loans { loan-id: loan-id })
+    (map-get? loans { loan-id: loan-id })
 )
 
 (define-read-only (get-user-reputation (user principal))
-    (map-get? UserReputation { user: user })
+    (map-get? user-reputation { user: user })
 )
 
 ;; Additional View Functions for Enhanced Transparency
@@ -363,8 +378,12 @@
     (var-get emergency-stopped)
 )
 
+(define-read-only (get-contract-owner)
+    (var-get contract-owner)
+)
+
 (define-read-only (calculate-total-due (loan-id uint))
-    (match (map-get? Loans { loan-id: loan-id })
+    (match (map-get? loans { loan-id: loan-id })
         loan (ok (+ 
             (get amount loan) 
             (/ (* (get amount loan) (get interest-rate loan)) u100)
