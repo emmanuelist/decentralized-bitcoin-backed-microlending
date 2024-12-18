@@ -202,3 +202,51 @@ Clarinet.test({
         assertEquals(block.receipts[1].result, '(ok true)');
     },
 });
+
+Clarinet.test({
+    name: "Ensure emergency stop mechanism works",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const deployer = accounts.get('deployer')!;
+        const borrower = accounts.get('wallet_1')!;
+        const asset = "STX";
+        
+        let block = chain.mineBlock([
+            // First add collateral asset and set price
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                deployer.address
+            ),
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'update-asset-price',
+                [types.ascii(asset), types.uint(1000000)],
+                deployer.address
+            ),
+            // Enable emergency stop
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'toggle-emergency-stop',
+                [],
+                deployer.address
+            ),
+            // Try to create loan during emergency stop
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'create-loan-request',
+                [
+                    types.uint(1000000),
+                    types.uint(2000000),
+                    types.ascii(asset),
+                    types.uint(1440),
+                    types.uint(500)
+                ],
+                borrower.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[2].result, '(ok true)'); // toggle-emergency-stop
+        assertEquals(block.receipts[3].result, `(err u1011)`); // ERR-EMERGENCY-STOP
+    },
+});
