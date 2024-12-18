@@ -1,10 +1,4 @@
-
-;; microlending
-;; This smart contract implements an enhanced microlending platform with robust security features. 
-;; It allows users to create and manage loans backed by collateral assets. The contract includes 
-;; mechanisms for collateral management, price feed updates, loan creation, and liquidation. 
-;; It also features an emergency stop function to halt operations in critical situations and 
-;; maintains user reputation based on loan repayment history.
+;; Microlending Smart Contract - Improved Version
 
 ;; Error Codes
 (define-constant ERR-NOT-AUTHORIZED (err u1000))
@@ -92,8 +86,12 @@
 ;; Owner Management
 (define-public (set-contract-owner (new-owner principal))
     (begin
+        ;; Check that the sender is the current contract owner
         (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-NOT-AUTHORIZED)
+        
+        ;; Ensure new owner is different from current owner
         (asserts! (not (is-eq new-owner (var-get contract-owner))) ERR-INVALID-AMOUNT)
+        
         (var-set contract-owner new-owner)
         (ok true)
     )
@@ -302,50 +300,25 @@
         
         ;; Update User Loans with Total Borrowed Tracking
         (let ((existing-user-loans (default-to 
-            { active-loans: (list), total-active-borrowed: u0 }
-            (map-get? user-loans { user: tx-sender-account }))))
-            (map-set user-loans
-                { user: tx-sender-account }
-                { 
-                    active-loans: (unwrap-panic (as-max-len? 
-                        (append (get active-loans existing-user-loans) loan-id) u20)),
-                    total-active-borrowed: (+ 
-                        (get total-active-borrowed existing-user-loans) 
-                        amount
-                    )
-                }
+        { active-loans: (list), total-active-borrowed: u0 }
+        (map-get? user-loans { user: tx-sender-account }))))
+    (map-set user-loans
+        { user: tx-sender-account }
+        { 
+            active-loans: (unwrap-panic (as-max-len? 
+                (append (get active-loans existing-user-loans) loan-id) u20)),
+            total-active-borrowed: (+ 
+                (get total-active-borrowed existing-user-loans) 
+                amount
             )
-        )
+        }
+    )
+)
         
         ;; Increment and Update Loan Tracking
         (var-set next-loan-id (+ loan-id u1))
         
         (ok loan-id)
-    )
-)
-
-;; Activate Loan
-(define-public (activate-loan (loan-id uint))
-    (begin
-        ;; First validate the loan-id is within valid range
-        (asserts! (> loan-id u0) ERR-LOAN-NOT-FOUND)
-        (asserts! (< loan-id (var-get next-loan-id)) ERR-LOAN-NOT-FOUND)
-        
-        (let ((loan (unwrap! (map-get? loans { loan-id: loan-id }) ERR-LOAN-NOT-FOUND)))
-            (begin
-                (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
-                (asserts! (is-eq (get status loan) "PENDING") ERR-LOAN-ALREADY-ACTIVE)
-                
-                (map-set loans
-                    { loan-id: loan-id }
-                    (merge loan { 
-                        status: "ACTIVE",
-                        start-height: block-height
-                    })
-                )
-                (ok true)
-            )
-        )
     )
 )
 

@@ -1,10 +1,4 @@
-
-;; microlending
-;; This smart contract implements an enhanced microlending platform with robust security features. 
-;; It allows users to create and manage loans backed by collateral assets. The contract includes 
-;; mechanisms for collateral management, price feed updates, loan creation, and liquidation. 
-;; It also features an emergency stop function to halt operations in critical situations and 
-;; maintains user reputation based on loan repayment history.
+;; Microlending Smart Contract - Improved Version
 
 ;; Error Codes
 (define-constant ERR-NOT-AUTHORIZED (err u1000))

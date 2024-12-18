@@ -1,9 +1,10 @@
-import React from 'react';
-import { AlertCircle } from 'lucide-react';
-import { useLoanForm } from './hooks';
+import React from "react";
+import { AlertCircle } from "lucide-react";
+import { useLoanForm } from "./hooks";
 
 export function LoanForm() {
-  const { formData, setFormData, isLoading, error, handleSubmit } = useLoanForm();
+  const { formData, setFormData, isLoading, error, handleSubmit } =
+    useLoanForm();
 
   return (
     <div className="bg-white rounded-lg shadow p-6">

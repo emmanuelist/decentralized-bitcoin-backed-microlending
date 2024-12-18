@@ -1,10 +1,4 @@
-
-;; microlending
-;; This smart contract implements an enhanced microlending platform with robust security features. 
-;; It allows users to create and manage loans backed by collateral assets. The contract includes 
-;; mechanisms for collateral management, price feed updates, loan creation, and liquidation. 
-;; It also features an emergency stop function to halt operations in critical situations and 
-;; maintains user reputation based on loan repayment history.
+;; Microlending Smart Contract - Improved Version
 
 ;; Error Codes
 (define-constant ERR-NOT-AUTHORIZED (err u1000))
@@ -30,6 +24,10 @@
 (define-constant MAX-DURATION u525600) ;; Maximum 1 year
 (define-constant LIQUIDATION-THRESHOLD u80) ;; 80% collateral value drop
 (define-constant MAX-PRICE-AGE u1440) ;; Maximum price age (1 day in blocks)
+(define-constant MIN-REPUTATION-SCORE u0)
+(define-constant MAX-REPUTATION-SCORE u200)
+(define-constant REPUTATION_PENALTY u20)
+(define-constant REPUTATION_REWARD u10)
 
 ;; Contract State Variables
 (define-data-var emergency-stopped bool false)
@@ -165,16 +163,15 @@
             }
             (map-get? user-reputation { user: user })
         ))
-        (reputation-change (if success u10 (- u0 u20)))
-        (new-reputation-score 
-            (if (< (+ (get reputation-score current-reputation) reputation-change) u0)
-                u0
-                (if (> (+ (get reputation-score current-reputation) reputation-change) u200)
-                    u200
-                    (+ (get reputation-score current-reputation) reputation-change)
-                )
-            )
-        )
+        (current-score (get reputation-score current-reputation))
+        (new-score (if success
+            (if (> (+ current-score REPUTATION_REWARD) MAX-REPUTATION-SCORE)
+                MAX-REPUTATION-SCORE
+                (+ current-score REPUTATION_REWARD))
+            (if (> current-score REPUTATION_PENALTY)
+                (- current-score REPUTATION_PENALTY)
+                MIN-REPUTATION-SCORE)
+        ))
     )
     (map-set user-reputation
         { user: user }
@@ -188,10 +185,11 @@
                 (+ (get defaults current-reputation) u1)
             ),
             total-borrowed: (get total-borrowed current-reputation),
-            reputation-score: new-reputation-score
+            reputation-score: new-score
         }
     ))
 )
+
 
 ;; Emergency Stop Mechanism
 (define-public (toggle-emergency-stop)
