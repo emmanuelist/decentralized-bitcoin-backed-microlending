@@ -133,3 +133,72 @@ Clarinet.test({
         assertEquals(block.receipts[2].result, `(err u1002)`); // ERR-INSUFFICIENT-COLLATERAL
     },
 });
+
+Clarinet.test({
+    name: "Ensure liquidation works when conditions are met",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const deployer = accounts.get('deployer')!;
+        const borrower = accounts.get('wallet_1')!;
+        const liquidator = accounts.get('wallet_2')!;
+        const asset = "STX";
+        
+        // Setup loan
+        let block = chain.mineBlock([
+            // Add collateral asset
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                deployer.address
+            ),
+            // Set initial price
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'update-asset-price',
+                [types.ascii(asset), types.uint(1000000)],
+                deployer.address
+            ),
+            // Create loan request
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'create-loan-request',
+                [
+                    types.uint(1000000),
+                    types.uint(2000000),
+                    types.ascii(asset),
+                    types.uint(1440),
+                    types.uint(500)
+                ],
+                borrower.address
+            ),
+            // Activate the loan
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'activate-loan',
+                [types.uint(1)],
+                deployer.address
+            )
+        ]);
+        
+        // Simulate time passing and price drop
+        chain.mineEmptyBlockUntil(chain.blockHeight + 1441); // Pass loan duration
+        
+        // Update price to trigger liquidation
+        block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'update-asset-price',
+                [types.ascii(asset), types.uint(500000)], // 50% price drop
+                deployer.address
+            ),
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'liquidate-loan',
+                [types.uint(1)],
+                liquidator.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[1].result, '(ok true)');
+    },
+});
