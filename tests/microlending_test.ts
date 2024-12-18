@@ -32,3 +32,22 @@ Clarinet.test({
         assertEquals(block.receipts[0].result, '(ok true)');
     },
 });
+
+Clarinet.test({
+    name: "Ensure non-owner cannot add collateral assets",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const user = accounts.get('wallet_1')!;
+        const asset = "STX";
+        
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                user.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[0].result, `(err u1000)`); // ERR-NOT-AUTHORIZED
+    },
+});
