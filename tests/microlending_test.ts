@@ -94,3 +94,42 @@ Clarinet.test({
         assertEquals(block.receipts[2].result, '(ok u1)');
     },
 });
+
+Clarinet.test({
+    name: "Ensure loan creation fails with insufficient collateral",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const deployer = accounts.get('deployer')!;
+        const borrower = accounts.get('wallet_1')!;
+        const asset = "STX";
+        
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                deployer.address
+            ),
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'update-asset-price',
+                [types.ascii(asset), types.uint(1000000)],
+                deployer.address
+            ),
+            // Try to create loan with insufficient collateral
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'create-loan-request',
+                [
+                    types.uint(1000000), // amount
+                    types.uint(1000000), // collateral (100% - insufficient)
+                    types.ascii(asset),
+                    types.uint(1440),
+                    types.uint(500)
+                ],
+                borrower.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[2].result, `(err u1002)`); // ERR-INSUFFICIENT-COLLATERAL
+    },
+});
