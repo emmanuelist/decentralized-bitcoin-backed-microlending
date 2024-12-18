@@ -114,141 +114,169 @@ Triggers:
 (define-public (update-asset-price (asset (string-ascii 20)) (price uint))
 ```
 
-## Testing with Clarity Console
+## Testing with Clarinet
 
-### Setting Up the Test Environment
+### Test Setup
 
-1. Start the Clarity REPL:
+```typescript
+import { Clarinet, Tx, Chain, Account, types } from 'https://deno.land/x/clarinet@v0.14.0/index.ts';
+import { assertEquals } from 'https://deno.land/std@0.90.0/testing/asserts.ts';
 
-```bash
-clarinet console
+const CONTRACT_NAME = 'microlending';
 ```
 
-2. The console will display available contracts and initialized balances:
-
-```
-clarity-repl v0.23.0
-Connected to a transient in-memory database.
-```
-
-Contracts
-+--------------------------------------------------------+-----------------------------------------------------+
-| Contract identifier | Public functions |
-+--------------------------------------------------------+-----------------------------------------------------+
-| ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.microlending | (add-collateral-asset (asset (string-ascii 20))) |
-| | (calculate-total-due (loan-id uint)) |
-| | ... |
-+--------------------------------------------------------+-----------------------------------------------------+
-
-````
 ### Test Cases
 
-#### 1. Testing Asset Management
+#### 1. Asset Management Tests
 
-```clarity
-;; Add a collateral asset (as contract owner)
-::set_tx_sender ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-(contract-call? .microlending add-collateral-asset "STX")
-;; Expected: (ok true)
-
-;; Update asset price
-(contract-call? .microlending update-asset-price "STX" u2000000)
-;; Expected: (ok true)
-
-;; Verify asset price (read-only function)
-(contract-call? .microlending get-asset-price "STX")
-;; Expected: (ok u2000000)
-````
-
-#### 2. Testing Loan Creation
-
-```clarity
-;; Create a loan request (as a borrower)
-::set_tx_sender ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5
-(contract-call? .microlending create-loan-request
-    u1000000    ;; amount
-    u2000000    ;; collateral
-    "STX"       ;; collateral-asset
-    u1440       ;; duration (1 day)
-    u500        ;; interest rate (5%)
-)
-;; Expected: (ok u1)
-
-;; Verify loan details
-(contract-call? .microlending get-loan u1)
-;; Expected: Returns loan details map
+```typescript
+Clarinet.test({
+    name: "Ensure contract owner can add and remove collateral assets",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const deployer = accounts.get('deployer')!;
+        const asset = "STX";
+        
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                deployer.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[0].result, '(ok true)');
+        
+        block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'remove-collateral-asset',
+                [types.ascii(asset)],
+                deployer.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[0].result, '(ok true)');
+    },
+});
 ```
 
-#### 3. Testing Platform Controls
+#### 2. Authorization Tests
 
-```clarity
-;; Test emergency stop (as contract owner)
-::set_tx_sender ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-(contract-call? .microlending toggle-emergency-stop)
-;; Expected: (ok true)
-
-;; Verify platform status
-(contract-call? .microlending get-contract-status)
-;; Expected: true (stopped)
+```typescript
+Clarinet.test({
+    name: "Ensure non-owner cannot add collateral assets",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const user = accounts.get('wallet_1')!;
+        const asset = "STX";
+        
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                user.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[0].result, `(err u1000)`); // ERR-NOT-AUTHORIZED
+    },
+});
 ```
 
-#### 4. Testing Loan Liquidation
+#### 3. Loan Creation Tests
 
-```clarity
-;; Advance blockchain (simulate time passing)
-::advance_chain_tip 2000
-
-;; Attempt liquidation
-::set_tx_sender ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG
-(contract-call? .microlending liquidate-loan u1)
-;; Expected: (ok true) if conditions met
+```typescript
+Clarinet.test({
+    name: "Ensure loan creation works with valid parameters",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const deployer = accounts.get('deployer')!;
+        const borrower = accounts.get('wallet_1')!;
+        const asset = "STX";
+        
+        let block = chain.mineBlock([
+            // Add collateral asset
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                deployer.address
+            ),
+            // Update price feed
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'update-asset-price',
+                [types.ascii(asset), types.uint(1000000)],
+                deployer.address
+            ),
+            // Create loan request
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'create-loan-request',
+                [
+                    types.uint(1000000), // amount
+                    types.uint(2000000), // collateral (200%)
+                    types.ascii(asset),
+                    types.uint(1440), // duration (1 day)
+                    types.uint(500) // 5% interest rate
+                ],
+                borrower.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[2].result, '(ok u1)');
+    },
+});
 ```
 
-### Common Testing Commands
+#### 4. Liquidation Tests
 
-```clarity
-;; Switch between different test accounts
-::set_tx_sender WALLET_ADDRESS
-
-;; Advance blockchain by N blocks
-::advance_chain_tip N
-
-;; View current block height
-block-height
-
-;; Get help with console commands
-::help
-
-;; Clear console
-::clear
+```typescript
+Clarinet.test({
+    name: "Ensure liquidation works when conditions are met",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const deployer = accounts.get('deployer')!;
+        const borrower = accounts.get('wallet_1')!;
+        const liquidator = accounts.get('wallet_2')!;
+        const asset = "STX";
+        
+        // Setup and create loan
+        let block = chain.mineBlock([
+            // Setup steps...
+        ]);
+        
+        // Simulate time passing and price drop
+        chain.mineEmptyBlockUntil(chain.blockHeight + 1441);
+        
+        block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'update-asset-price',
+                [types.ascii(asset), types.uint(500000)], // 50% price drop
+                deployer.address
+            ),
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'liquidate-loan',
+                [types.uint(1)],
+                liquidator.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[1].result, '(ok true)');
+    },
+});
 ```
 
-### Testing Best Practices
+### Running Tests
 
-1. **Systematic Testing**
+```bash
+# Run all tests
+clarinet test
 
-- Test each function independently
-- Test both success and failure cases
-- Verify error conditions
-- Test with boundary values
-
-2. **State Management**
-
-- Reset state between test cases
-- Verify state changes after operations
-- Test with different user contexts
-
-3. **Error Handling**
-
-- Verify all error conditions
-- Test authorization checks
-- Validate input boundaries
-
-4. **Integration Testing**
-
-- Test function interactions
-- Verify complex workflows
-- Test state transitions
+# Run specific test file
+clarinet test tests/microlending_test.ts
+```
 
 ## Security Features
 
@@ -294,6 +322,7 @@ const createLoan = async (params) => {
 ## Prerequisites
 
 - Stacks blockchain environment
+- Clarinet testing framework
 - Compatible wallet supporting Clarity smart contracts
 
 ## Deployment
