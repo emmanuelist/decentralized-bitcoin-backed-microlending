@@ -51,3 +51,46 @@ Clarinet.test({
         assertEquals(block.receipts[0].result, `(err u1000)`); // ERR-NOT-AUTHORIZED
     },
 });
+
+Clarinet.test({
+    name: "Ensure loan creation works with valid parameters",
+    async fn(chain: Chain, accounts: Map<string, Account>) {
+        const deployer = accounts.get('deployer')!;
+        const borrower = accounts.get('wallet_1')!;
+        const asset = "STX";
+        
+        // First add collateral asset
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'add-collateral-asset',
+                [types.ascii(asset)],
+                deployer.address
+            ),
+            // Update price feed
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'update-asset-price',
+                [types.ascii(asset), types.uint(1000000)],
+                deployer.address
+            ),
+            // Create loan request
+            Tx.contractCall(
+                CONTRACT_NAME,
+                'create-loan-request',
+                [
+                    types.uint(1000000), // amount
+                    types.uint(2000000), // collateral (200%)
+                    types.ascii(asset),
+                    types.uint(1440), // duration (1 day)
+                    types.uint(500) // 5% interest rate
+                ],
+                borrower.address
+            )
+        ]);
+        
+        assertEquals(block.receipts[0].result, '(ok true)');
+        assertEquals(block.receipts[1].result, '(ok true)');
+        assertEquals(block.receipts[2].result, '(ok u1)');
+    },
+});
